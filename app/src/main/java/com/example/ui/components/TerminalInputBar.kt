@@ -96,7 +96,8 @@ fun TerminalInputBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 quickChips.forEach { chip ->
-                    ElevatedAssistChip(
+                    InputChip(
+                        selected = false,
                         onClick = { onChipClick(chip.command) },
                         label = {
                             Text(
@@ -104,18 +105,22 @@ fun TerminalInputBar(
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontFamily = JetBrainsMonoFontFamily,
                                     fontSize = 11.sp
-                                )
+                                ),
+                                maxLines = 1
                             )
                         },
                         trailingIcon = {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Delete chip",
-                                modifier = Modifier
-                                    .size(14.dp)
-                                    .clip(CircleShape),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
+                            IconButton(
+                                onClick = { chipToDelete = chip },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Delete chip",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
                         },
                         shape = RoundedCornerShape(12.dp)
                     )
@@ -132,7 +137,7 @@ fun TerminalInputBar(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Command input row
             Row(
@@ -141,34 +146,34 @@ fun TerminalInputBar(
             ) {
                 // History Up/Down navigation buttons
                 Column(
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     IconButton(
                         onClick = onHistoryUp,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Default.ArrowUpward,
                             contentDescription = "History previous",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(
                         onClick = onHistoryDown,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Default.ArrowDownward,
                             contentDescription = "History next",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
                 // Text field
                 OutlinedTextField(
@@ -183,25 +188,24 @@ fun TerminalInputBar(
                     },
                     leadingIcon = {
                         Text(
-                            "$",
-                            style = MaterialTheme.typography.bodyLarge.copy(
+                            text = "$",
+                            style = MaterialTheme.typography.titleMedium.copy(
                                 fontFamily = JetBrainsMonoFontFamily,
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 12.dp, end = 4.dp)
+                            color = MaterialTheme.colorScheme.primary
                         )
                     },
                     trailingIcon = {
                         if (commandText.isNotEmpty()) {
                             IconButton(
                                 onClick = { onCommandChange("") },
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Clear input",
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(18.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -261,6 +265,30 @@ fun TerminalInputBar(
                 }
             }
         }
+    }
+
+    // Delete chip confirmation dialog
+    chipToDelete?.let { chip ->
+        AlertDialog(
+            onDismissRequest = { chipToDelete = null },
+            title = { Text("Delete Quick Command") },
+            text = { Text("Remove \"${chip.command}\" from quick access chips?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteChip(chip)
+                        chipToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { chipToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // Add quick chip dialog

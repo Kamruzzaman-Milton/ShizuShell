@@ -7,8 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -121,10 +123,11 @@ fun MainAppContent(viewModel: ShellViewModel) {
                 }
 
                 Scaffold(
+                    contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
                     modifier = Modifier.weight(1f)
                 ) { innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)) {
+                    Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                         AppNavigationHost(
                             navController = navController,
                             viewModel = viewModel,
@@ -135,32 +138,42 @@ fun MainAppContent(viewModel: ShellViewModel) {
             }
         } else {
             // Standard handheld layout: NavigationBar at bottom
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val isImeVisible = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(density) > 0
+
             Scaffold(
+                contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 bottomBar = {
-                    NavigationBar {
-                        bottomNavItems.forEach { screen ->
-                            NavigationBarItem(
-                                selected = currentRoute == screen.route,
-                                onClick = {
-                                    if (currentRoute != screen.route) {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                    if (!isImeVisible) {
+                        NavigationBar {
+                            bottomNavItems.forEach { screen ->
+                                NavigationBarItem(
+                                    selected = currentRoute == screen.route,
+                                    onClick = {
+                                        if (currentRoute != screen.route) {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
-                                    }
-                                },
-                                icon = { Icon(screen.icon, contentDescription = screen.title) },
-                                label = { Text(screen.title) }
-                            )
+                                    },
+                                    icon = { Icon(screen.icon, contentDescription = screen.title) },
+                                    label = { Text(screen.title) }
+                                )
+                            }
                         }
                     }
                 }
             ) { innerPadding ->
-                Box(modifier = Modifier.padding(innerPadding)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                ) {
                     AppNavigationHost(
                         navController = navController,
                         viewModel = viewModel,

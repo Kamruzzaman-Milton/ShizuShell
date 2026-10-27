@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -49,8 +50,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.model.ChatMessageItem
@@ -82,19 +86,19 @@ fun CommandBubble(
         Box {
             Surface(
                 modifier = Modifier
-                    .widthIn(min = 120.dp, max = 340.dp)
+                    .widthIn(min = 90.dp, max = 560.dp)
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp))
                     .combinedClickable(
-                        onClick = { showMenu = true },
-                        onLongClick = { showMenu = true }
+                        onLongClick = { showMenu = true },
+                        onClick = { /* Keep standard click for copy or non-intrusive action */ }
                     ),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp),
                 tonalElevation = 3.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
                     Text(
                         text = "$ ",
@@ -102,27 +106,29 @@ fun CommandBubble(
                             fontFamily = JetBrainsMonoFontFamily,
                             fontWeight = FontWeight.Bold
                         ),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(top = 1.dp)
                     )
-                    Text(
-                        text = item.command,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = JetBrainsMonoFontFamily,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    SelectionContainer(modifier = Modifier.weight(1f, fill = false)) {
+                        Text(
+                            text = item.command,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = JetBrainsMonoFontFamily,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
                         onClick = onTogglePin,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             if (isPinned) Icons.Default.Star else Icons.Default.StarBorder,
                             contentDescription = "Pin command",
                             tint = if (isPinned) ShellWarning else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -191,13 +197,18 @@ fun OutputBubble(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    // Live elapsed timer when running
-    var elapsedSeconds by remember { mutableLongStateOf(0L) }
+    // Live elapsed timer when running - accurately anchored to start timestamp
+    val startedAt = remember(item.id) {
+        (item.status as? CommandStatus.Running)?.startedAt ?: System.currentTimeMillis()
+    }
+    var elapsedSeconds by remember(item.id) {
+        mutableLongStateOf((System.currentTimeMillis() - startedAt).coerceAtLeast(0L) / 1000L)
+    }
+
     LaunchedEffect(item.status) {
         if (item.status is CommandStatus.Running) {
-            val start = System.currentTimeMillis()
             while (true) {
-                elapsedSeconds = (System.currentTimeMillis() - start) / 1000L
+                elapsedSeconds = (System.currentTimeMillis() - startedAt).coerceAtLeast(0L) / 1000L
                 delay(500L)
             }
         }
@@ -212,11 +223,11 @@ fun OutputBubble(
         Box {
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth(0.95f)
+                    .fillMaxWidth(0.96f)
                     .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
                     .combinedClickable(
-                        onClick = { showMenu = true },
-                        onLongClick = { showMenu = true }
+                        onLongClick = { showMenu = true },
+                        onClick = { /* Non-intrusive click allows scrolling and selection */ }
                     ),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                 shape = RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
@@ -306,20 +317,20 @@ fun OutputBubble(
                         // Copy quick action
                         IconButton(
                             onClick = { showMenu = true },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "Output options",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Monospace output stream
+                    // Monospace output stream with selectable text and smooth rendering
                     if (item.outputLines.isEmpty() && item.isRunning) {
                         Text(
                             text = "Waiting for process output...",
@@ -347,16 +358,27 @@ fun OutputBubble(
                             Modifier.fillMaxWidth()
                         }
 
-                        Column(modifier = textModifier) {
-                            item.outputLines.forEach { lineItem ->
+                        val defaultTextColor = MaterialTheme.colorScheme.onSurface
+                        val annotatedOutput = remember(item.outputLines, defaultTextColor) {
+                            buildAnnotatedString {
+                                item.outputLines.forEachIndexed { index, lineItem ->
+                                    if (index > 0) append("\n")
+                                    withStyle(SpanStyle(color = if (lineItem.isError) ShellError else defaultTextColor)) {
+                                        append(lineItem.text)
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(modifier = textModifier) {
+                            SelectionContainer {
                                 Text(
-                                    text = lineItem.text,
+                                    text = annotatedOutput,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontFamily = JetBrainsMonoFontFamily,
                                         fontSize = fontSizeSp.sp,
                                         lineHeight = (fontSizeSp + 4).sp
-                                    ),
-                                    color = if (lineItem.isError) ShellError else MaterialTheme.colorScheme.onSurface
+                                    )
                                 )
                             }
                         }

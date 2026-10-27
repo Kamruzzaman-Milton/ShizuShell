@@ -21,7 +21,7 @@ interface HistoryDao {
     @Query("SELECT * FROM command_history WHERE command LIKE '%' || :query || '%' ORDER BY timestamp DESC")
     fun searchHistory(query: String): Flow<List<CommandHistoryEntity>>
 
-    @Query("SELECT DISTINCT command FROM command_history ORDER BY timestamp DESC LIMIT :limit")
+    @Query("SELECT command FROM command_history GROUP BY command ORDER BY MAX(timestamp) DESC LIMIT :limit")
     suspend fun getRecentUniqueCommands(limit: Int = 100): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -3,6 +3,8 @@ package com.example.ui.screens
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -121,17 +123,18 @@ fun TerminalScreen(
     // Auto-scroll to newest message
     LaunchedEffect(messages.size, messages.lastOrNull()?.outputLines?.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size * 2 - 1)
+            val targetIndex = (messages.size * 2 - 1).coerceAtLeast(0)
+            listState.animateScrollToItem(targetIndex)
         }
     }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "ShizuShell",
@@ -140,7 +143,7 @@ fun TerminalScreen(
                                 fontFamily = JetBrainsMonoFontFamily
                             )
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         ShizukuStatusPill(
                             status = shizukuStatus,
                             onClick = { showShizukuSheet = true },
@@ -258,73 +261,104 @@ fun TerminalScreen(
         ) {
             // Session Tabs row
             if (sessions.isNotEmpty()) {
-                ScrollableTabRow(
-                    selectedTabIndex = sessions.indexOfFirst { it.sessionId == activeSessionId }.coerceAtLeast(0),
-                    edgePadding = 8.dp,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    divider = {}
+                val selectedIndex = sessions.indexOfFirst { it.sessionId == activeSessionId }.coerceAtLeast(0)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    sessions.forEach { session ->
-                        val isSelected = session.sessionId == activeSessionId
-                        Tab(
-                            selected = isSelected,
-                            onClick = { viewModel.switchSession(session.sessionId) },
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = session.name,
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontFamily = JetBrainsMonoFontFamily,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    )
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedIndex,
+                        modifier = Modifier.weight(1f),
+                        edgePadding = 8.dp,
+                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                        divider = {}
+                    ) {
+                        sessions.forEachIndexed { index, session ->
+                            val isSelected = session.sessionId == activeSessionId
+                            var showTabOptions by remember { mutableStateOf(false) }
+
+                            Tab(
+                                selected = isSelected,
+                                onClick = {
                                     if (isSelected) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        IconButton(
-                                            onClick = {
-                                                sessionToRename = session
-                                                renameText = session.name
-                                            },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
+                                        showTabOptions = true
+                                    } else {
+                                        viewModel.switchSession(session.sessionId)
+                                    }
+                                },
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = session.name,
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontFamily = JetBrainsMonoFontFamily,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        )
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = "Rename session",
-                                                modifier = Modifier.size(12.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                Icons.Default.MoreVert,
+                                                contentDescription = "Session options",
+                                                modifier = Modifier.size(14.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                             )
                                         }
-                                        if (sessions.size > 1) {
-                                            IconButton(
-                                                onClick = { viewModel.closeSession(session.sessionId) },
-                                                modifier = Modifier.size(18.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Close,
-                                                    contentDescription = "Close session",
-                                                    modifier = Modifier.size(12.dp),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showTabOptions,
+                                        onDismissRequest = { showTabOptions = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Rename Tab") },
+                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            onClick = {
+                                                showTabOptions = false
+                                                sessionToRename = session
+                                                renameText = session.name
                                             }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Clear Messages") },
+                                            leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                            onClick = {
+                                                showTabOptions = false
+                                                viewModel.clearCurrentSession()
+                                            }
+                                        )
+                                        if (sessions.size > 1) {
+                                            DropdownMenuItem(
+                                                text = { Text("Close Tab") },
+                                                leadingIcon = { Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                                onClick = {
+                                                    showTabOptions = false
+                                                    viewModel.closeSession(session.sessionId)
+                                                }
+                                            )
                                         }
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
 
-                    // Add session tab button
-                    Tab(
-                        selected = false,
+                    // Add session tab button outside ScrollableTabRow
+                    IconButton(
                         onClick = { showNewSessionDialog = true },
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text("New Tab", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    )
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "New Session Tab",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
@@ -392,10 +426,13 @@ fun TerminalScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    ) {
                         Icon(
                             Icons.Default.Terminal,
                             contentDescription = null,
@@ -433,32 +470,36 @@ fun TerminalScreen(
                         .padding(horizontal = 12.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(messages, key = { it.id }) { item ->
-                        val isPinned = pinnedList.any { it.command == item.command }
-                        CommandBubble(
-                            item = item,
-                            isPinned = isPinned,
-                            onTogglePin = { viewModel.togglePinCommand(item.command) },
-                            onCopyText = { text, label ->
-                                clipboardManager.setText(AnnotatedString(text))
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(label)
-                                }
-                            },
-                            onReRun = { viewModel.executeCommand(item.command) }
-                        )
+                    messages.forEach { item ->
+                        item(key = "${item.id}_cmd") {
+                            val isPinned = pinnedList.any { it.command == item.command }
+                            CommandBubble(
+                                item = item,
+                                isPinned = isPinned,
+                                onTogglePin = { viewModel.togglePinCommand(item.command) },
+                                onCopyText = { text, label ->
+                                    clipboardManager.setText(AnnotatedString(text))
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(label)
+                                    }
+                                },
+                                onReRun = { viewModel.executeCommand(item.command) }
+                            )
+                        }
 
-                        OutputBubble(
-                            item = item,
-                            fontSizeSp = preferences.fontSizeSp,
-                            wrapLongLines = preferences.wrapLongLines,
-                            onCopyText = { text, label ->
-                                clipboardManager.setText(AnnotatedString(text))
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar(label)
+                        item(key = "${item.id}_out") {
+                            OutputBubble(
+                                item = item,
+                                fontSizeSp = preferences.fontSizeSp,
+                                wrapLongLines = preferences.wrapLongLines,
+                                onCopyText = { text, label ->
+                                    clipboardManager.setText(AnnotatedString(text))
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(label)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }

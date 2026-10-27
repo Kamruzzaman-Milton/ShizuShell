@@ -62,11 +62,11 @@ fun ShizukuStatusPill(
         !status.isAvailable -> Triple(
             ShellError,
             "Stopped",
-            "Not running"
+            "Off"
         )
         !status.hasPermission -> Triple(
             ShellWarning,
-            "Permission Needed",
+            "No Perm",
             "v${status.version}"
         )
         status.isRoot -> Triple(
